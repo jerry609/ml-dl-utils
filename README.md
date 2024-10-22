@@ -1,183 +1,285 @@
-# utils.py 使用文档
-
-`utils.py` 是一个辅助函数库，包含机器学习训练中常见的工具，如设置随机种子、数据增强、保存和加载检查点、优化器创建、学习率调度器设置、训练指标记录与绘制等。
-
 ## 目录
-- [环境依赖](#环境依赖)
-- [函数说明](#函数说明)
-  - [set_random_seeds(seed=42)](#set_random_seeds)
-  - [get_device()](#get_device)
-  - [create_transforms(img_size=224, augmentation_strength='medium')](#create_transforms)
-  - [mixup_data(x, y, device, alpha=0.2)](#mixup_data)
-  - [save_checkpoint(state, is_best, checkpoint_dir, filename='checkpoint.pth')](#save_checkpoint)
-  - [load_checkpoint(model, checkpoint_path, optimizer=None, scheduler=None)](#load_checkpoint)
-  - [create_optimizer(model, opt_type='adam', lr=1e-3, weight_decay=1e-4)](#create_optimizer)
-  - [create_scheduler(optimizer, scheduler_type='plateau', **kwargs)](#create_scheduler)
-  - [plot_metrics(metrics, save_path=None)](#plot_metrics)
-  - [save_training_history(metrics, filepath)](#save_training_history)
-  - [load_training_history(filepath)](#load_training_history)
-  - [AverageMeter](#AverageMeter)
 
-## 环境依赖
+- [简介](#简介)
+- [模块概述](#模块概述)
+  - [config.py](#configpy)
+  - [data_utils.py](#data_utilspy)
+  - [utils.py](#utilspy)
+  - [optimizers.py](#optimizerspy)
+  - [schedulers.py](#schedulerspy)
+  - [callbacks.py](#callbackspy)
+  - [trainer.py](#trainerpy)
+  - [main.py](#mainpy)
+- [使用指南](#使用指南)
+  - [安装依赖](#安装依赖)
+  - [准备数据](#准备数据)
+  - [编写训练脚本](#编写训练脚本)
+  - [运行训练](#运行训练)
+- [自定义与扩展](#自定义与扩展)
+  - [添加新的优化器](#添加新的优化器)
+  - [添加新的学习率调度器](#添加新的学习率调度器)
+  - [自定义回调函数](#自定义回调函数)
+- [项目结构](#项目结构)
+- [许可证](#许可证)
 
-在使用该模块之前，请确保安装了以下库：
+## 简介
+
+本深度学习训练框架旨在提供一个模块化、可扩展的训练流程，适用于图像分类等任务。通过将配置、数据处理、模型训练、优化器、调度器、回调等功能模块化，降低了代码的耦合度，提高了可维护性和可扩展性。
+
+## 模块概述
+
+### config.py
+
+- **功能**：提供配置管理类，用于读取、更新和保存训练配置。
+- **主要内容**：
+  - `Config` 类：用于加载和保存配置。
+  - `create_default_config` 函数：创建默认的配置实例，可根据需要进行修改。
+
+### data_utils.py
+
+- **功能**：提供数据增强和数据处理的实用函数。
+- **主要内容**：
+  - `get_augmentation_pipeline` 函数：根据指定的强度返回数据增强流水线。
+  - `mixup_data` 函数：实现 Mixup 数据增强方法。
+
+### utils.py
+
+- **功能**：提供常用的实用函数，如设置随机种子、获取计算设备等。
+- **主要内容**：
+  - `set_random_seeds` 函数：设置随机种子，确保实验的可重复性。
+  - `get_device` 函数：获取当前可用的计算设备（CPU 或 GPU）。
+
+### optimizers.py
+
+- **功能**：封装优化器的创建逻辑。
+- **主要内容**：
+  - `create_optimizer` 函数：根据配置创建优化器实例。
+
+### schedulers.py
+
+- **功能**：封装学习率调度器的创建逻辑。
+- **主要内容**：
+  - `create_scheduler` 函数：根据配置创建学习率调度器实例。
+
+### callbacks.py
+
+- **功能**：实现训练过程中的回调机制，如早停、模型检查点、日志记录等。
+- **主要内容**：
+  - `Callback` 基类：所有回调类的父类，定义了基本的方法接口。
+  - `EarlyStopping` 类：实现早停功能，当验证指标不再提升时停止训练。
+  - `ModelCheckpoint` 类：在训练过程中保存模型的检查点。
+  - `HistoryLogger` 类：记录训练历史并生成可视化图表。
+
+### trainer.py
+
+- **功能**：核心的训练管理器，负责模型的训练、验证和测试流程。
+- **主要内容**：
+  - `Trainer` 类：封装了训练循环，支持混合精度训练、数据增强、回调机制等。
+
+### main.py
+
+- **功能**：训练脚本示例，展示如何使用上述模块进行模型训练。
+- **主要内容**：
+  - `example_usage` 函数：演示了完整的训练流程，包括配置创建、模型定义、数据加载、训练启动等。
+
+## 使用指南
+
+### 安装依赖
+
+确保您的环境安装了以下依赖：
+
+- Python 3.7+
+- PyTorch 1.7+
+- torchvision
+- matplotlib
+- numpy
+- tqdm
+
+使用以下命令安装所需的 Python 包：
 
 ```bash
-pip install torch torchvision numpy matplotlib
+pip install torch torchvision matplotlib numpy tqdm
 ```
 
-## 函数说明
+### 准备数据
 
-### set_random_seeds
-```python
-set_random_seeds(seed=42)
-```
-设置所有随机种子，确保实验可重复性。
-
-参数:
-- `seed` (int): 随机种子，默认值为 42。
-
-### get_device
-```python
-get_device()
-```
-获取当前可用的计算设备（GPU 或 CPU）。
-
-返回:
-- `device` (torch.device): 可用的设备对象。
-
-### create_transforms
-```python
-create_transforms(img_size=224, augmentation_strength='medium')
-```
-创建数据增强与标准化的转换管道。
-
-参数:
-- `img_size` (int): 输入图像大小，默认为 224。
-- `augmentation_strength` (str): 数据增强强度，取值范围为 `'light'`, `'medium'`, `'strong'`。默认值为 `'medium'`。
-
-返回:
-- `train_transform`: 训练数据的转换。
-- `val_test_transform`: 验证和测试数据的转换。
-
-### mixup_data
-```python
-mixup_data(x, y, device, alpha=0.2)
-```
-实现 Mixup 数据增强。
-
-参数:
-- `x` (torch.Tensor): 输入数据。
-- `y` (torch.Tensor): 标签数据。
-- `device` (torch.device): 计算设备。
-- `alpha` (float): Mixup 参数，控制数据混合程度，默认值为 0.2。
-
-返回:
-- `mixed_x`, `y_a`, `y_b`, `lam`: 混合后的数据及对应的标签。
-
-### save_checkpoint
-```python
-save_checkpoint(state, is_best, checkpoint_dir, filename='checkpoint.pth')
-```
-保存模型检查点。
-
-参数:
-- `state` (dict): 模型状态字典。
-- `is_best` (bool): 是否是当前最佳模型。
-- `checkpoint_dir` (str): 检查点保存目录。
-- `filename` (str): 文件名，默认为 `checkpoint.pth`。
-
-### load_checkpoint
-```python
-load_checkpoint(model, checkpoint_path, optimizer=None, scheduler=None)
-```
-加载模型检查点。
-
-参数:
-- `model` (torch.nn.Module): 模型实例。
-- `checkpoint_path` (str): 检查点路径。
-- `optimizer` (torch.optim.Optimizer, 可选): 优化器实例。
-- `scheduler` (torch.optim.lr_scheduler, 可选): 学习率调度器实例。
-
-返回:
-- `epoch` (int): 加载的 epoch 数。
-- `best_val_acc` (float): 最佳验证准确率。
-
-### create_optimizer
-```python
-create_optimizer(model, opt_type='adam', lr=1e-3, weight_decay=1e-4)
-```
-创建优化器。
-
-参数:
-- `model` (torch.nn.Module): 模型实例。
-- `opt_type` (str): 优化器类型，支持 `'adam'`, `'sgd'`, `'adamw'`。
-- `lr` (float): 学习率，默认值为 `1e-3`。
-- `weight_decay` (float): 权重衰减系数，默认值为 `1e-4`。
-
-返回:
-- `optimizer` (torch.optim.Optimizer): 优化器实例。
-
-### create_scheduler
-```python
-create_scheduler(optimizer, scheduler_type='plateau', **kwargs)
-```
-创建学习率调度器。
-
-参数:
-- `optimizer` (torch.optim.Optimizer): 优化器实例。
-- `scheduler_type` (str): 调度器类型，支持 `'plateau'`, `'cosine'`, `'onecycle'`。
-- `**kwargs`: 调度器的其他参数。
-
-返回:
-- `scheduler` (torch.optim.lr_scheduler): 调度器实例。
-
-### plot_metrics
-```python
-plot_metrics(metrics, save_path=None)
-```
-绘制训练过程中的指标曲线（损失、准确率、学习率等）。
-
-参数:
-- `metrics` (dict): 训练历史数据字典，包含 `train_loss`, `val_loss`, `train_acc`, `val_acc` 等。
-- `save_path` (str, 可选): 图表保存路径。如果未指定，将显示图表。
-
-### save_training_history
-```python
-save_training_history(metrics, filepath)
-```
-保存训练历史到 JSON 文件。
-
-参数:
-- `metrics` (dict): 训练历史字典。
-- `filepath` (str): 保存路径。
-
-### load_training_history
-```python
-load_training_history(filepath)
-```
-从 JSON 文件加载训练历史。
-
-参数:
-- `filepath` (str): JSON 文件路径。
-
-返回:
-- `metrics` (dict): 训练历史字典。
-
-### AverageMeter
-`AverageMeter` 是一个帮助类，用于记录和计算平均值，如损失、准确率等。
+您需要准备自己的数据集，并创建相应的 `DataLoader`。以下是一个简单的示例：
 
 ```python
-class AverageMeter:
-    def __init__(self):
-        self.reset()
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
 
-    def reset(self):
-        """重置所有计数器"""
-    
-    def update(self, val, n=1):
-        """更新计数器"""
+# 定义数据增强和预处理
+train_transforms = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+])
+
+# 加载数据集
+train_dataset = datasets.ImageFolder(root='path_to_train_data', transform=train_transforms)
+val_dataset = datasets.ImageFolder(root='path_to_val_data', transform=train_transforms)
+test_dataset = datasets.ImageFolder(root='path_to_test_data', transform=train_transforms)
+
+# 创建数据加载器
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=4)
+val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False, num_workers=4)
+test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=4)
 ```
 
-## 贡献者
-此工具库由开发者创建，欢迎贡献和改进。
+### 编写训练脚本
+
+在 `main.py` 中，您可以根据自己的需求修改训练脚本：
+
+```python
+from config import create_default_config
+from trainer import Trainer
+from callbacks import EarlyStopping, ModelCheckpoint, HistoryLogger
+from torchvision import models
+import torch.nn as nn
+
+def main():
+    # 创建配置
+    config = create_default_config(
+        model_name='your_model_name',
+        learning_rate=1e-3,
+        batch_size=32,
+        epochs=50,
+        augmentation_strength='strong',
+        optimizer={'type': 'adamw', 'weight_decay': 1e-4},
+        scheduler={'type': 'onecycle', 'max_lr': 1e-2}
+    )
+
+    # 定义模型
+    model = models.resnet18(pretrained=True)
+    model.fc = nn.Linear(model.fc.in_features, num_classes)  # 请替换 num_classes 为您的类别数
+
+    # 创建数据加载器
+    # 请确保已经定义了 train_loader, val_loader, test_loader
+
+    # 定义回调函数
+    callbacks = [
+        EarlyStopping(patience=config.early_stopping_patience, min_lr=config.min_lr),
+        ModelCheckpoint(checkpoint_dir=config.checkpoint_dir, max_checkpoints=config.max_checkpoints),
+        HistoryLogger(checkpoint_dir=config.checkpoint_dir)
+    ]
+
+    # 创建 Trainer 并开始训练
+    trainer = Trainer(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        test_loader=test_loader,
+        config=config,
+        callbacks=callbacks
+    )
+
+    best_model = trainer.train()
+
+    # 保存最终结果
+    final_metrics = {
+        'best_val_acc': trainer.best_val_acc,
+        'final_test_acc': trainer.metrics['test_acc'][-1],
+        'total_epochs': len(trainer.metrics['train_loss'])
+    }
+
+    metrics_path = config.checkpoint_dir / 'final_metrics.json'
+    with open(metrics_path, 'w') as f:
+        json.dump(final_metrics, f, indent=4)
+```
+
+### 运行训练
+
+在终端中运行训练脚本：
+
+```bash
+python main.py
+```
+
+训练过程中的日志、模型检查点和训练历史图表将保存在 `checkpoints/your_model_name` 目录下。
+
+## 自定义与扩展
+
+### 添加新的优化器
+
+在 `optimizers.py` 中的 `create_optimizer` 函数中，您可以添加新的优化器：
+
+```python
+optimizers = {
+    'adam': torch.optim.Adam,
+    'sgd': torch.optim.SGD,
+    'adamw': torch.optim.AdamW,
+    'rmsprop': torch.optim.RMSprop,  # 新增优化器
+}
+```
+
+然后在配置中指定：
+
+```python
+optimizer={'type': 'rmsprop', 'lr': 1e-3, 'weight_decay': 1e-4}
+```
+
+### 添加新的学习率调度器
+
+在 `schedulers.py` 中的 `create_scheduler` 函数中，您可以添加新的调度器：
+
+```python
+schedulers = {
+    'plateau': ...,
+    'cosine': ...,
+    'onecycle': ...,
+    'step': lambda: torch.optim.lr_scheduler.StepLR(
+        optimizer,
+        step_size=scheduler_config.get('step_size', 30),
+        gamma=scheduler_config.get('gamma', 0.1)
+    ),
+}
+```
+
+然后在配置中指定：
+
+```python
+scheduler={'type': 'step', 'step_size': 30, 'gamma': 0.1}
+```
+
+### 自定义回调函数
+
+您可以创建自己的回调类，继承自 `callbacks.py` 中的 `Callback` 基类：
+
+```python
+class CustomCallback(Callback):
+    def on_epoch_end(self, trainer):
+        # 自定义逻辑
+        pass
+```
+
+然后在创建 `Trainer` 时，将其添加到回调列表中：
+
+```python
+callbacks = [
+    ...,
+    CustomCallback(),
+]
+```
+
+## 项目结构
+
+```
+├── config.py           # 配置管理
+├── data_utils.py       # 数据处理与增强
+├── utils.py            # 工具函数
+├── optimizers.py       # 优化器创建
+├── schedulers.py       # 学习率调度器创建
+├── callbacks.py        # 回调机制
+├── trainer.py          # 训练管理器
+├── main.py             # 训练脚本
+├── checkpoints/        # 保存模型和日志的目录
+└── README.md           # 项目说明文档
+```
+
+## 许可证
+
+本项目遵循 MIT 许可证，详细内容请参见 [LICENSE](LICENSE) 文件。
+
+---
+
+如有任何问题或建议，欢迎提交 issue 或 pull request。
